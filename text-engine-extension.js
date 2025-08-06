@@ -3,7 +3,7 @@
         constructor(runtime) {
             this.runtime = runtime;
             this.fontPrefix = '';
-            this.fontSpriteName = null;
+            this.fontSpriteName = '';
             this.spacing = 20;
             this.lineSpacing = 30;
             this.lastClones = [];
@@ -11,13 +11,13 @@
 
         getInfo() {
             return {
-                id: 'textrendererfixed',
-                name: 'Text Engine Fixed',
+                id: 'textrendererplus',
+                name: 'Text Engine+',
                 blocks: [
                     {
                         opcode: 'setFontSettings',
                         blockType: Scratch.BlockType.COMMAND,
-                        text: 'set font to sprite [SPRITE] prefix [PREFIX] spacing [SPACING] line spacing [LINESPACING]',
+                        text: 'set font: sprite [SPRITE] prefix [PREFIX] spacing [SPACING] line spacing [LINESPACING]',
                         arguments: {
                             SPRITE: {
                                 type: Scratch.ArgumentType.STRING,
@@ -33,7 +33,7 @@
                         blockType: Scratch.BlockType.COMMAND,
                         text: 'render text [TEXT] at x [X] y [Y]',
                         arguments: {
-                            TEXT: { type: Scratch.ArgumentType.STRING, defaultValue: 'Hello World!' },
+                            TEXT: { type: Scratch.ArgumentType.STRING, defaultValue: 'Hello\nWorld!' },
                             X: { type: Scratch.ArgumentType.NUMBER, defaultValue: 0 },
                             Y: { type: Scratch.ArgumentType.NUMBER, defaultValue: 0 }
                         }
@@ -45,18 +45,17 @@
                     }
                 ],
                 menus: {
-                    spriteMenu: 'getSpriteNames'
+                    spriteMenu: {
+                        acceptReporters: false
+                    }
                 }
             };
         }
 
-        getSpriteNames() {
+        spriteMenu() {
             return this.runtime.targets
-                .filter(t => t.isOriginal && t.sprite)
-                .map(t => ({
-                    text: t.sprite.name,
-                    value: t.sprite.name
-                }));
+                .filter(t => t.isOriginal && t.sprite && t.sprite.name)
+                .map(t => t.sprite.name);
         }
 
         setFontSettings(args) {
@@ -77,48 +76,41 @@
 
         renderText(args, util) {
             const text = args.TEXT || '';
-            const startX = Number(args.X || 0);
-            const startY = Number(args.Y || 0);
+            const startX = Number(args.X);
+            const startY = Number(args.Y);
             const lines = text.split('\n');
 
-            const fontSpriteTarget = this.runtime.targets.find(t =>
-                t.sprite?.name === this.fontSpriteName && t.isOriginal
+            const fontSpriteTarget = this.runtime.targets.find(
+                t => t.isOriginal && t.sprite && t.sprite.name === this.fontSpriteName
             );
-
-            if (!fontSpriteTarget) {
-                console.warn('[TextEngine] Font sprite not found:', this.fontSpriteName);
-                return;
-            }
+            if (!fontSpriteTarget) return;
 
             this.clearText();
 
-            let clones = [];
+            const clones = [];
+            let count = 0;
 
-            let index = 0;
             for (let row = 0; row < lines.length; row++) {
                 const line = lines[row];
                 for (let col = 0; col < line.length; col++) {
                     const char = line[col];
                     const costumeName = this.fontPrefix + char;
 
-                    // create clone
                     const clone = fontSpriteTarget.makeClone();
                     if (clone) {
                         clones.push(clone);
-
-                        ((clone, costumeName, x, y) => {
+                        ((clone, y, x, name, delay) => {
                             setTimeout(() => {
-                                if (clone.setCostume) clone.setCostume(costumeName);
+                                if (clone.setCostume) clone.setCostume(name);
                                 if (clone.setXY) clone.setXY(x, y);
-                            }, 50 * index);
-                        })(
-                            clone,
-                            costumeName,
-                            startX + col * this.spacing,
-                            startY - row * this.lineSpacing
+                            }, delay);
+                        })(clone,
+                           startY - row * this.lineSpacing,
+                           startX + col * this.spacing,
+                           costumeName,
+                           count * 30
                         );
-
-                        index++;
+                        count++;
                     }
                 }
             }
@@ -129,3 +121,4 @@
 
     Scratch.extensions.register(new TextEngineFixed());
 })(Scratch);
+
